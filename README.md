@@ -1,4 +1,4 @@
-# FLight Booking System - NoSQL Implementation
+# Flight Booking System - NoSQL Implementation
 
 ## Directory
 
