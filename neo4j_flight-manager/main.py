@@ -1,4 +1,6 @@
 import json
+import sys
+
 from neo4j import GraphDatabase, Result, ResultSummary, RoutingControl
 
 
@@ -17,8 +19,8 @@ class Driver():
     def end_connection(self):
         self.driver.close()
         
-    def query_flights(self, departure_code: str, arrival_code: str) -> tuple[list[list[dict]], ResultSummary]:
-        query = self._create_query_flight_via_path(departure_code, arrival_code)
+    def query_flights(self, departure_code: str, arrival_code: str, date: str) -> tuple[list[list[dict]], ResultSummary]:
+        query = self._create_query_flight_via_path(departure_code, arrival_code, date)
         
         records: list[dict]
         result_summary: ResultSummary
@@ -31,9 +33,10 @@ class Driver():
         return records, result_summary
 
     @staticmethod
-    def _create_query_flight_via_path(start_code: str, end_code: str) -> str:
+    def _create_query_flight_via_path(start_code: str, end_code: str, date: str) -> str:
         query = f"match ps=(:Airport{{code:'{start_code}'}})-[fs:Flight*]->(:Airport{{code:'{end_code}'}}) " \
-                r"where all(i in range(0, size(fs)-2) where fs[i].departureTime < fs[i+1].departureTime) " \
+                f"where date(fs[0].departureTime) = date('{date}') and " \
+                r"all(i in range(0, size(fs)-2) where fs[i].departureTime < fs[i+1].departureTime) " \
                 r"unwind ps as p " \
                 r"return [r in relationships(p) | "\
                 r"{departure: properties(startNode(r)), " \
@@ -87,11 +90,20 @@ if __name__ == '__main__':
     driver = Driver()
     
     driver.start_connection()
-    
-    flights, result_summary = driver.query_flights('HAN', 'SYD')
+
+    start_code = 'HAN'
+    end_code = 'SYD'
+    date = '2024-04-01'
+
+    if len(sys.argv) == 4:
+        start_code = sys.argv[1]
+        end_code = sys.argv[2]
+        date = sys.argv[3]
+
+    flights, result_summary = driver.query_flights(start_code, end_code, date)
     
     print(f'> result_available_after: {result_summary.result_available_after}ms')
     print(f'> result_consumed_after: {result_summary.result_consumed_after}ms')
-    print(json.dumps(flights, indent=2))
+    print('> Possible Paths:\n' + json.dumps(flights, indent=2))
         
     driver.end_connection()
